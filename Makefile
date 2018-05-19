@@ -1,7 +1,14 @@
 #ARCH=arm
 #CC="/home/albert/buildroot/buildroot-2017.11/output/host/bin/arm-buildroot-linux-uclibcgnueabihf-gcc"
 
-CFLAGS=-I/usr/include/alsa -I.
+# 0: use ALSA,  1: use tinyalsa 
+SUPPORT_TINYALSA=0
+
+CFLAGS=-Wall -I/usr/include/alsa/ -I.
+ifeq ($(SUPPORT_TINYALSA), 1)
+CFLAGS+=-I../tinyalsa/include/ -DSUPPORT_TINYALSA=1
+endif
+
 LDFLAGS=-lasound -ldl -lm
 
 SRC=$(wildcard *.c)
