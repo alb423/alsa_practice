@@ -5,6 +5,9 @@
 extern "C" {
 #endif
 
+#define MI_BUFFER_TIME 	500000              /* ring buffer length in us */
+#define MI_PERIOD_TIME 	15000               /* ring buffer length in us */
+
 #define _TRACE_ALSA_ printf("%s:%d\n", __func__, __LINE__);
 
 #include <alsa/asoundlib.h>

@@ -63,13 +63,16 @@ int pcm_format_to_alsa(enum pcm_format format)
 int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwparams, struct pcm_config *pConfigsIn)
 {
 	int vRet = 0;
-	int vDirection = 0;
+	int vDir = 0;
 	snd_pcm_format_t    vFormat;
 	snd_pcm_uframes_t   vFrames;
 	snd_pcm_sw_params_t *swparams = NULL;
 	int period_event = 0;
 	int buffer_size = 1024;
 	int period_size = 4;
+	unsigned int buffer_time = MI_BUFFER_TIME;
+	unsigned int period_time = MI_PERIOD_TIME;
+
 	// tinyalsa configuration
 	struct pcm_config *pConfigs = (struct pcm_config *)pConfigsIn;
 
@@ -106,17 +109,43 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 	}
 
 	/* 16000 bits/second sampling rate (CD quality) */
-	vRet = snd_pcm_hw_params_set_rate_near(pHandle, hwparams, &pConfigs->rate, &vDirection); // 16000
+	vRet = snd_pcm_hw_params_set_rate_near(pHandle, hwparams, &pConfigs->rate, &vDir); // 16000
 	if (vRet < 0) {
 		fprintf(stderr, "Error setting rate : %s\n", snd_strerror(vRet));
 		return (-1);
 	}
 
+#if 1
+	vRet = snd_pcm_hw_params_set_buffer_time_near(pHandle, hwparams, &buffer_time, &vDir);
+	if (vRet < 0) {
+		printf("Unable to set buffer time %i for playback: %s\n", buffer_time, snd_strerror(vRet));
+		return vRet;
+	}
+	vRet = snd_pcm_hw_params_get_buffer_size(hwparams, &vFrames);
+	if (vRet < 0) {
+		printf("Unable to get buffer size for playback: %s\n", snd_strerror(vRet));
+		return vRet;
+	}
+	buffer_size = vFrames;
+
+	vRet = snd_pcm_hw_params_set_period_time_near(pHandle, hwparams, &period_time, &vDir);
+	if (vRet < 0) {
+		printf("Unable to set period time %i for playback: %s\n", period_time, snd_strerror(vRet));
+		return vRet;
+	}
+	vRet = snd_pcm_hw_params_get_period_size(hwparams, &vFrames, &vDir);
+	if (vRet < 0) {
+		printf("Unable to get period size for playback: %s\n", snd_strerror(vRet));
+		return vRet;
+	}
+	period_size = vFrames;
+
+#else
 	/* Set period size to 256 frames. */
 	vFrames = 256;
-	vRet = snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDirection);
-	//snd_pcm_hw_params_set_period_size(pHandle, hwparams, pConfigs->period_size, vDirection);	// 1024
-	//snd_pcm_hw_params_set_periods(pHandle, hwparams, pConfigs->period_count, vDirection);  // 4
+	vRet = snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDir);
+	//snd_pcm_hw_params_set_period_size(pHandle, hwparams, pConfigs->period_size, vDir);	// 1024
+	//snd_pcm_hw_params_set_periods(pHandle, hwparams, pConfigs->period_count, vDir);  // 4
 	if (vRet < 0) {
 		fprintf(stderr, "Error setting period_size : %s\n", snd_strerror(vRet));
 		return (-1);
@@ -130,6 +159,7 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		fprintf(stderr, "Error setting buffer_size : %s\n", snd_strerror(vRet));
 		return (-1);
 	}
+#endif
 
 	/* Write the parameters to the driver */
 	vRet = snd_pcm_hw_params(pHandle, hwparams);
@@ -192,13 +222,16 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 
 int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 {
-	int vRet, vDirection;
+	int vRet, vDir;
 	unsigned int vVal;
-	snd_pcm_uframes_t vFrames;
+
 	int period_event = 0;
 	int buffer_size = 512;
 	int period_size = 512;
+	unsigned int buffer_time = MI_BUFFER_TIME;
+	unsigned int period_time = MI_PERIOD_TIME;
 
+	snd_pcm_uframes_t vFrames;
 	snd_pcm_hw_params_t *hwparams = pParams;
 	snd_pcm_sw_params_t *swparams = NULL;
 
@@ -229,20 +262,38 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 
 	/* 16000 bits/second sampling rate (CD quality) */
 	vVal = 16000;
-	vRet = snd_pcm_hw_params_set_rate_near(pHandle, hwparams, &vVal, &vDirection);
+	vRet = snd_pcm_hw_params_set_rate_near(pHandle, hwparams, &vVal, &vDir);
 	if (vRet < 0) {
 		fprintf(stderr, "Error setting rate : %s\n", snd_strerror(vRet));
 		return (-1);
 	}
 
-	/* Set period size to 256 frames. */
-	vFrames = 256;
-	vRet = snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDirection);
+#if 1
+	vRet = snd_pcm_hw_params_set_buffer_time_near(pHandle, hwparams, &buffer_time, &vDir);
 	if (vRet < 0) {
-		fprintf(stderr, "Error setting period_size : %s\n", snd_strerror(vRet));
-		return (-1);
+		printf("Unable to set buffer time %i for playback: %s\n", buffer_time, snd_strerror(vRet));
+		return vRet;
 	}
+	vRet = snd_pcm_hw_params_get_buffer_size(hwparams, &vFrames);
+	if (vRet < 0) {
+		printf("Unable to get buffer size for playback: %s\n", snd_strerror(vRet));
+		return vRet;
+	}
+	buffer_size = vFrames;
 
+	vRet = snd_pcm_hw_params_set_period_time_near(pHandle, hwparams, &period_time, &vDir);
+	if (vRet < 0) {
+		printf("Unable to set period time %i for playback: %s\n", period_time, snd_strerror(vRet));
+		return vRet;
+	}
+	vRet = snd_pcm_hw_params_get_period_size(hwparams, &vFrames, &vDir);
+	if (vRet < 0) {
+		printf("Unable to get period size for playback: %s\n", snd_strerror(vRet));
+		return vRet;
+	}
+	period_size = vFrames;
+
+#else
 	/* Set buffer size (in frames). The resulting latency is given by */
 	/* latency = periodsize * periods / (rate * bytes_per_frame)     */
 	vRet = snd_pcm_hw_params_set_buffer_size(pHandle, hwparams, period_size * 8);
@@ -250,6 +301,15 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 		fprintf(stderr, "Error setting buffer_size : %s\n", snd_strerror(vRet));
 		return (-1);
 	}
+
+	/* Set period size to 256 frames. */
+	vFrames = 256;
+	vRet = snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDir);
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting period_size : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
+#endif
 
 	/* Write the parameters to the driver */
 	vRet = snd_pcm_hw_params(pHandle, hwparams);
@@ -322,7 +382,7 @@ void ShowAlsaParameters(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams, snd_pc
 	snd_pcm_tstamp_t vxTimeStamp;
 	//snd_pcm_tstamp_type_t vxTimeStampType;
 	unsigned int vVal, vVal2;
-	int vDirection;
+	int vDir;
 
 	/* Display information about the PCM interface */
 	if (pParams) {
@@ -345,22 +405,22 @@ void ShowAlsaParameters(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams, snd_pc
 		snd_pcm_hw_params_get_channels(pParams, &vVal);
 		printf("channels = %d\n", vVal);
 
-		snd_pcm_hw_params_get_rate(pParams, &vVal, &vDirection);
+		snd_pcm_hw_params_get_rate(pParams, &vVal, &vDir);
 		printf("rate = %d bps\n", vVal);
 
-		snd_pcm_hw_params_get_period_time(pParams, &vVal, &vDirection);
+		snd_pcm_hw_params_get_period_time(pParams, &vVal, &vDir);
 		printf("period time = %d us\n", vVal);
 
-		snd_pcm_hw_params_get_period_size(pParams, &vxFrames, &vDirection);
+		snd_pcm_hw_params_get_period_size(pParams, &vxFrames, &vDir);
 		printf("period size = %d vxFrames\n", (int)vxFrames);
 
-		snd_pcm_hw_params_get_buffer_time(pParams, &vVal, &vDirection);
+		snd_pcm_hw_params_get_buffer_time(pParams, &vVal, &vDir);
 		printf("buffer time = %d us\n", vVal);
 
 		snd_pcm_hw_params_get_buffer_size(pParams, (snd_pcm_uframes_t *) &vVal);
 		printf("buffer size = %d vxFrames\n", vVal);
 
-		snd_pcm_hw_params_get_periods(pParams, &vVal, &vDirection);
+		snd_pcm_hw_params_get_periods(pParams, &vVal, &vDir);
 		printf("periods per buffer = %d vxFrames\n", vVal);
 
 		snd_pcm_hw_params_get_rate_numden(pParams, &vVal, &vVal2);
@@ -369,7 +429,7 @@ void ShowAlsaParameters(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams, snd_pc
 		vVal = snd_pcm_hw_params_get_sbits(pParams);
 		printf("significant bits = %d\n", vVal);
 
-		//snd_pcm_hw_params_get_tick_time(pParams, &vVal, &vDirection);
+		//snd_pcm_hw_params_get_tick_time(pParams, &vVal, &vDir);
 		//printf("tick time = %d us\n", vVal);
 
 		vVal = snd_pcm_hw_params_is_batch(pParams);
