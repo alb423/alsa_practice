@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "my_alsa_common.h"
+#define _TRACE_ALSA_ printf("%s:%d\n", __func__, __LINE__);
 /*
 https://www.alsa-project.org/alsa-doc/alsa-lib/_2test_2pcm_8c-example.html
 */
@@ -65,12 +66,13 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 	int vRet = 0;
 	int vDirection = 0;
 	snd_pcm_format_t    vFormat;
-	//snd_pcm_uframes_t vFrames;
-	snd_pcm_sw_params_t *swparams;
+	snd_pcm_uframes_t vFrames;
+	//snd_pcm_sw_params_t *swparams;
 
 	// tinyalsa configuration
 	struct pcm_config *pConfigs = (struct pcm_config *)pConfigsIn;
 
+	_TRACE_ALSA_;
 	if (!pConfigs)
 		return -1;
 
@@ -92,10 +94,10 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 	snd_pcm_hw_params_set_rate_near(pHandle, hwparams, &pConfigs->rate, &vDirection); // 44100
 
 	/* Set period size to 32 frames. */
-	//vFrames = 32;
-	//snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDirection);
-	snd_pcm_hw_params_set_period_size(pHandle, hwparams, pConfigs->period_size, vDirection);	// 1024
-	snd_pcm_hw_params_set_periods(pHandle, hwparams, pConfigs->period_count, vDirection);  // 4
+	vFrames = 32;
+	snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDirection);
+	//snd_pcm_hw_params_set_period_size(pHandle, hwparams, pConfigs->period_size, vDirection);	// 1024
+	//snd_pcm_hw_params_set_periods(pHandle, hwparams, pConfigs->period_count, vDirection);  // 4
 
 	/* Write the parameters to the driver */
 	vRet = snd_pcm_hw_params(pHandle, hwparams);
@@ -104,6 +106,8 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		exit(1);
 	}
 
+#if 0
+	// Below setting may cause segmentation fault
 	snd_pcm_sw_params_alloca(&swparams);
 
 	/* get the current swparams */
@@ -147,12 +151,12 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		fprintf(stderr, "unable to set sw parameters: %s\n", snd_strerror(vRet));
 		exit(1);
 	}
-
+#endif
 	return 0;
 }
 
 
-#else 
+#else
 
 int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 {
@@ -160,6 +164,7 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 	unsigned int vVal;
 	snd_pcm_uframes_t vFrames;
 
+	_TRACE_ALSA_;
 	/* Fill it in with default vValues. */
 	snd_pcm_hw_params_any(pHandle, pParams);
 
@@ -186,91 +191,124 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 		fprintf(stderr, "unable to set hw parameters: %s\n", snd_strerror(vRet));
 		exit(1);
 	}
+	return 0;
 }
 
 #endif
 
-void ShowAlsaParameters(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
+void ShowAlsaParameters(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams, snd_pcm_sw_params_t *pSwParams)
 {
 	snd_pcm_uframes_t vxFrames;
+	snd_pcm_tstamp_t vxTimeStamp;
+	//snd_pcm_tstamp_type_t vxTimeStampType;
 	unsigned int vVal, vVal2;
 	int vDirection;
 
 	/* Display information about the PCM interface */
+	if (pParams) {
+		printf("PCM pHandle name = '%s'\n", snd_pcm_name(pHandle));
+		printf("PCM state = %s\n", snd_pcm_state_name(snd_pcm_state(pHandle)));
 
-	printf("PCM pHandle name = '%s'\n", snd_pcm_name(pHandle));
-	printf("PCM state = %s\n", snd_pcm_state_name(snd_pcm_state(pHandle)));
+		snd_pcm_hw_params_get_access(pParams, (snd_pcm_access_t *) &vVal);
+		printf("access type = %s\n", snd_pcm_access_name((snd_pcm_access_t)vVal));
 
-	snd_pcm_hw_params_get_access(pParams, (snd_pcm_access_t *) &vVal);
-	printf("access type = %s\n", snd_pcm_access_name((snd_pcm_access_t)vVal));
+		snd_pcm_hw_params_get_format(pParams, (snd_pcm_format_t *)&vVal);
+		printf("format = '%s' (%s)\n",
+		       snd_pcm_format_name((snd_pcm_format_t)vVal),
+		       snd_pcm_format_description((snd_pcm_format_t)vVal));
 
-	snd_pcm_hw_params_get_format(pParams, (snd_pcm_format_t *)&vVal);
-	printf("format = '%s' (%s)\n",
-	       snd_pcm_format_name((snd_pcm_format_t)vVal),
-	       snd_pcm_format_description((snd_pcm_format_t)vVal));
+		snd_pcm_hw_params_get_subformat(pParams, (snd_pcm_subformat_t *)&vVal);
+		printf("subformat = '%s' (%s)\n",
+		       snd_pcm_subformat_name((snd_pcm_subformat_t)vVal),
+		       snd_pcm_subformat_description((snd_pcm_subformat_t)vVal));
 
-	snd_pcm_hw_params_get_subformat(pParams, (snd_pcm_subformat_t *)&vVal);
-	printf("subformat = '%s' (%s)\n",
-	       snd_pcm_subformat_name((snd_pcm_subformat_t)vVal),
-	       snd_pcm_subformat_description((snd_pcm_subformat_t)vVal));
+		snd_pcm_hw_params_get_channels(pParams, &vVal);
+		printf("channels = %d\n", vVal);
 
-	snd_pcm_hw_params_get_channels(pParams, &vVal);
-	printf("channels = %d\n", vVal);
+		snd_pcm_hw_params_get_rate(pParams, &vVal, &vDirection);
+		printf("rate = %d bps\n", vVal);
 
-	snd_pcm_hw_params_get_rate(pParams, &vVal, &vDirection);
-	printf("rate = %d bps\n", vVal);
+		snd_pcm_hw_params_get_period_time(pParams, &vVal, &vDirection);
+		printf("period time = %d us\n", vVal);
 
-	snd_pcm_hw_params_get_period_time(pParams, &vVal, &vDirection);
-	printf("period time = %d us\n", vVal);
+		snd_pcm_hw_params_get_period_size(pParams, &vxFrames, &vDirection);
+		printf("period size = %d vxFrames\n", (int)vxFrames);
 
-	snd_pcm_hw_params_get_period_size(pParams, &vxFrames, &vDirection);
-	printf("period size = %d vxFrames\n", (int)vxFrames);
+		snd_pcm_hw_params_get_buffer_time(pParams, &vVal, &vDirection);
+		printf("buffer time = %d us\n", vVal);
 
-	snd_pcm_hw_params_get_buffer_time(pParams, &vVal, &vDirection);
-	printf("buffer time = %d us\n", vVal);
+		snd_pcm_hw_params_get_buffer_size(pParams, (snd_pcm_uframes_t *) &vVal);
+		printf("buffer size = %d vxFrames\n", vVal);
 
-	snd_pcm_hw_params_get_buffer_size(pParams, (snd_pcm_uframes_t *) &vVal);
-	printf("buffer size = %d vxFrames\n", vVal);
+		snd_pcm_hw_params_get_periods(pParams, &vVal, &vDirection);
+		printf("periods per buffer = %d vxFrames\n", vVal);
 
-	snd_pcm_hw_params_get_periods(pParams, &vVal, &vDirection);
-	printf("periods per buffer = %d vxFrames\n", vVal);
+		snd_pcm_hw_params_get_rate_numden(pParams, &vVal, &vVal2);
+		printf("exact rate = %d/%d bps\n", vVal, vVal2);
 
-	snd_pcm_hw_params_get_rate_numden(pParams, &vVal, &vVal2);
-	printf("exact rate = %d/%d bps\n", vVal, vVal2);
+		vVal = snd_pcm_hw_params_get_sbits(pParams);
+		printf("significant bits = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_get_sbits(pParams);
-	printf("significant bits = %d\n", vVal);
+		//snd_pcm_hw_params_get_tick_time(pParams, &vVal, &vDirection);
+		//printf("tick time = %d us\n", vVal);
 
-	//snd_pcm_hw_params_get_tick_time(pParams, &vVal, &vDirection);
-	//printf("tick time = %d us\n", vVal);
+		vVal = snd_pcm_hw_params_is_batch(pParams);
+		printf("is batch = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_is_batch(pParams);
-	printf("is batch = %d\n", vVal);
+		vVal = snd_pcm_hw_params_is_block_transfer(pParams);
+		printf("is block transfer = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_is_block_transfer(pParams);
-	printf("is block transfer = %d\n", vVal);
+		vVal = snd_pcm_hw_params_is_double(pParams);
+		printf("is double = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_is_double(pParams);
-	printf("is double = %d\n", vVal);
+		vVal = snd_pcm_hw_params_is_half_duplex(pParams);
+		printf("is half duplex = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_is_half_duplex(pParams);
-	printf("is half duplex = %d\n", vVal);
+		vVal = snd_pcm_hw_params_is_joint_duplex(pParams);
+		printf("is joint duplex = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_is_joint_duplex(pParams);
-	printf("is joint duplex = %d\n", vVal);
+		vVal = snd_pcm_hw_params_can_overrange(pParams);
+		printf("can overrange = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_can_overrange(pParams);
-	printf("can overrange = %d\n", vVal);
+		vVal = snd_pcm_hw_params_can_mmap_sample_resolution(pParams);
+		printf("can mmap = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_can_mmap_sample_resolution(pParams);
-	printf("can mmap = %d\n", vVal);
+		vVal = snd_pcm_hw_params_can_pause(pParams);
+		printf("can pause = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_can_pause(pParams);
-	printf("can pause = %d\n", vVal);
+		vVal = snd_pcm_hw_params_can_resume(pParams);
+		printf("can resume = %d\n", vVal);
 
-	vVal = snd_pcm_hw_params_can_resume(pParams);
-	printf("can resume = %d\n", vVal);
+		vVal = snd_pcm_hw_params_can_sync_start(pParams);
+		printf("can sync start = %d\n", vVal);
+	}
 
-	vVal = snd_pcm_hw_params_can_sync_start(pParams);
-	printf("can sync start = %d\n", vVal);
+	// software params
+	if (pSwParams) {
+		snd_pcm_sw_params_get_avail_min(pSwParams, &vxFrames);
+		printf("minimum available frames = %d vxFrames\n", (int)vxFrames);
+
+		snd_pcm_sw_params_get_boundary(pSwParams, &vxFrames);
+		printf("boundary in frames = %d vxFrames\n", (int)vxFrames);
+
+		snd_pcm_sw_params_get_period_event(pSwParams, (int *)&vVal);
+		printf("period event state = %d\n", vVal);
+
+		snd_pcm_sw_params_get_silence_size(pSwParams, &vxFrames);
+		printf("silence size in frames = %d\n", (int)vxFrames);
+
+		snd_pcm_sw_params_get_silence_threshold(pSwParams, &vxFrames);
+		printf("silence threshold in frames = %d\n", (int)vxFrames);
+
+		snd_pcm_sw_params_get_start_threshold(pSwParams, &vxFrames);
+		printf("start threshold in frames = %d\n", (int)vxFrames);
+
+		snd_pcm_sw_params_get_stop_threshold(pSwParams, &vxFrames);
+		printf("stop threshold in frames = %d\n", (int)vxFrames);
+
+		snd_pcm_sw_params_get_tstamp_mode(pSwParams, &vxTimeStamp);
+		printf("timestamp val = %d\n", (int)vxTimeStamp);
+		//snd_pcm_sw_params_get_tstamp_type(pSwParams, &vxTimeStampType);
+		//printf("timestamp type = %d\n", (int)vxTimeStampType);
+	}
 }

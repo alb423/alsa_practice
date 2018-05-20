@@ -40,11 +40,11 @@ int main(int argc, char **argv)
 	vxConfigs.period_count = 4;
 	vxConfigs.format = PCM_FORMAT_S16_LE;
 	SetParametersByTinyAlsaConfigs(pHandle, pParams, (struct pcm_config *)&vxConfigs);
-#else	
+#else
 	SetParametersByAlsaConfigs(pHandle, pParams);
 #endif
 
-	//ShowAlsaParameters(pHandle, pParams);
+	ShowAlsaParameters(pHandle, pParams, NULL);
 
 	/* Use a buffer large enough to hold one period */
 	snd_pcm_hw_params_get_period_size(pParams, &vFrames, &vDirection);
@@ -84,7 +84,7 @@ int main(int argc, char **argv)
 	}
 
 	snd_pcm_drain(pHandle);
-	snd_pcm_close(pHandle);	
+	snd_pcm_close(pHandle);
 	free(pBuffer);
 
 	/* ================

@@ -41,7 +41,7 @@ int main()
 	vxConfigs.rate = 44100;
 	vxConfigs.period_size = 1024;
 	vxConfigs.period_count = 4;
-	vxConfigs.format = PCM_FORMAT_S16_LE;	
+	vxConfigs.format = PCM_FORMAT_S16_LE;
 	SetParametersByTinyAlsaConfigs(pHandle, pParams, &vxConfigs);
 #else
 	SetParametersByAlsaConfigs(pHandle, pParams);
