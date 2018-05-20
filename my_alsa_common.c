@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "my_alsa_common.h"
-#define _TRACE_ALSA_ printf("%s:%d\n", __func__, __LINE__);
 /*
 https://www.alsa-project.org/alsa-doc/alsa-lib/_2test_2pcm_8c-example.html
 */
@@ -36,7 +35,7 @@ int pcm_format_to_alsa(enum pcm_format format)
 	switch (format) {
 
 	case PCM_FORMAT_S8:
-			return SND_PCM_FORMAT_S8;
+		return SND_PCM_FORMAT_S8;
 
 	default:
 	case PCM_FORMAT_S16_LE:
@@ -66,9 +65,11 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 	int vRet = 0;
 	int vDirection = 0;
 	snd_pcm_format_t    vFormat;
-	snd_pcm_uframes_t vFrames;
-	//snd_pcm_sw_params_t *swparams;
-
+	snd_pcm_uframes_t   vFrames;
+	snd_pcm_sw_params_t *swparams = NULL;
+	int period_event = 0;
+	int buffer_size = 1024;
+	int period_size = 4;
 	// tinyalsa configuration
 	struct pcm_config *pConfigs = (struct pcm_config *)pConfigsIn;
 
@@ -76,28 +77,59 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 	if (!pConfigs)
 		return -1;
 
+	buffer_size = pConfigs->period_size;
+	period_size = pConfigs->period_size;
+
 	/* Fill it in with default vValues. */
 	snd_pcm_hw_params_any(pHandle, hwparams);
 
 	/* Interleaved mode */
-	snd_pcm_hw_params_set_access(pHandle, hwparams, SND_PCM_ACCESS_RW_INTERLEAVED);
-
-	vFormat = pcm_format_to_alsa(pConfigs->format);
+	vRet = snd_pcm_hw_params_set_access(pHandle, hwparams, SND_PCM_ACCESS_RW_INTERLEAVED);
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting access : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
 	/* Signed 16-bit little-endian format */
-	snd_pcm_hw_params_set_format(pHandle, hwparams, vFormat); // SND_PCM_FORMAT_S16_LE
+	vFormat = pcm_format_to_alsa(pConfigs->format);
+	vRet = snd_pcm_hw_params_set_format(pHandle, hwparams, vFormat); // SND_PCM_FORMAT_S16_LE
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting format : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
 	/* Two channels (stereo) */
-	snd_pcm_hw_params_set_channels(pHandle, hwparams, pConfigs->channels); // 2
+	vRet = snd_pcm_hw_params_set_channels(pHandle, hwparams, pConfigs->channels); // 2
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting channels : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
-	/* 44100 bits/second sampling rate (CD quality) */
-	snd_pcm_hw_params_set_rate_near(pHandle, hwparams, &pConfigs->rate, &vDirection); // 44100
+	/* 16000 bits/second sampling rate (CD quality) */
+	vRet = snd_pcm_hw_params_set_rate_near(pHandle, hwparams, &pConfigs->rate, &vDirection); // 16000
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting rate : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
-	/* Set period size to 32 frames. */
-	vFrames = 32;
-	snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDirection);
+	/* Set period size to 256 frames. */
+	vFrames = 256;
+	vRet = snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDirection);
 	//snd_pcm_hw_params_set_period_size(pHandle, hwparams, pConfigs->period_size, vDirection);	// 1024
 	//snd_pcm_hw_params_set_periods(pHandle, hwparams, pConfigs->period_count, vDirection);  // 4
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting period_size : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
+
+	/* NOTE:  here may cause underrun*/
+	/* Set buffer size (in frames). The resulting latency is given by */
+	/* latency = periodsize * periods / (rate * bytes_per_frame)     */
+	vRet = snd_pcm_hw_params_set_buffer_size(pHandle, hwparams, (pConfigs->period_size * pConfigs->period_count) >> 2);
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting buffer_size : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
 	/* Write the parameters to the driver */
 	vRet = snd_pcm_hw_params(pHandle, hwparams);
@@ -106,7 +138,6 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		exit(1);
 	}
 
-#if 0
 	// Below setting may cause segmentation fault
 	snd_pcm_sw_params_alloca(&swparams);
 
@@ -117,12 +148,12 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		return vRet;
 	}
 
-	int period_event = 0;
-	int buffer_size = pConfigs->period_size;
-	int period_size = pConfigs->period_size;
+
 	/* start the transfer when the buffer is almost full: */
 	/* (buffer_size / avail_min) * avail_min */
+
 	vRet = snd_pcm_sw_params_set_start_threshold(pHandle, swparams, (buffer_size / period_size) * period_size);
+	//vRet = snd_pcm_sw_params_set_start_threshold(pHandle, swparams, 1);
 	if (vRet < 0) {
 		printf("Unable to set start threshold mode for playback: %s\n", snd_strerror(vRet));
 		return vRet;
@@ -151,7 +182,8 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		fprintf(stderr, "unable to set sw parameters: %s\n", snd_strerror(vRet));
 		exit(1);
 	}
-#endif
+
+	ShowAlsaParameters(pHandle, hwparams, swparams);
 	return 0;
 }
 
@@ -163,38 +195,126 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 	int vRet, vDirection;
 	unsigned int vVal;
 	snd_pcm_uframes_t vFrames;
+	int period_event = 0;
+	int buffer_size = 512;
+	int period_size = 512;
+
+	snd_pcm_hw_params_t *hwparams = pParams;
+	snd_pcm_sw_params_t *swparams = NULL;
 
 	_TRACE_ALSA_;
 	/* Fill it in with default vValues. */
-	snd_pcm_hw_params_any(pHandle, pParams);
+	snd_pcm_hw_params_any(pHandle, hwparams);
 
 	/* Interleaved mode */
-	snd_pcm_hw_params_set_access(pHandle, pParams, SND_PCM_ACCESS_RW_INTERLEAVED);
+	vRet = snd_pcm_hw_params_set_access(pHandle, hwparams, SND_PCM_ACCESS_RW_INTERLEAVED);
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting access : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
 	/* Signed 16-bit little-endian format */
-	snd_pcm_hw_params_set_format(pHandle, pParams, SND_PCM_FORMAT_S16_LE);
+	vRet = snd_pcm_hw_params_set_format(pHandle, hwparams, SND_PCM_FORMAT_S16_LE);
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting format : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
 	/* Two channels (stereo) */
-	snd_pcm_hw_params_set_channels(pHandle, pParams, 2);
+	vRet = snd_pcm_hw_params_set_channels(pHandle, hwparams, 2);
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting channels : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
-	/* 44100 bits/second sampling rate (CD quality) */
-	vVal = 44100;
-	snd_pcm_hw_params_set_rate_near(pHandle, pParams, &vVal, &vDirection);
+	/* 16000 bits/second sampling rate (CD quality) */
+	vVal = 16000;
+	vRet = snd_pcm_hw_params_set_rate_near(pHandle, hwparams, &vVal, &vDirection);
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting rate : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
-	/* Set period size to 32 frames. */
-	vFrames = 32;
-	snd_pcm_hw_params_set_period_size_near(pHandle, pParams, &vFrames, &vDirection);
+	/* Set period size to 256 frames. */
+	vFrames = 256;
+	vRet = snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDirection);
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting period_size : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
+
+	/* Set buffer size (in frames). The resulting latency is given by */
+	/* latency = periodsize * periods / (rate * bytes_per_frame)     */
+	vRet = snd_pcm_hw_params_set_buffer_size(pHandle, hwparams, period_size * 8);
+	if (vRet < 0) {
+		fprintf(stderr, "Error setting buffer_size : %s\n", snd_strerror(vRet));
+		return (-1);
+	}
 
 	/* Write the parameters to the driver */
-	vRet = snd_pcm_hw_params(pHandle, pParams);
+	vRet = snd_pcm_hw_params(pHandle, hwparams);
 	if (vRet < 0) {
 		fprintf(stderr, "unable to set hw parameters: %s\n", snd_strerror(vRet));
 		exit(1);
 	}
+
+	/* Write the parameters to the driver */
+	vRet = snd_pcm_hw_params(pHandle, hwparams);
+	if (vRet < 0) {
+		fprintf(stderr, "unable to set hw parameters: %s\n", snd_strerror(vRet));
+		exit(1);
+	}
+
+	// Below setting may cause segmentation fault
+	snd_pcm_sw_params_alloca(&swparams);
+
+	/* get the current swparams */
+	vRet = snd_pcm_sw_params_current(pHandle, swparams);
+	if (vRet < 0) {
+		printf("Unable to determine current swparams for playback: %s\n", snd_strerror(vRet));
+		return vRet;
+	}
+
+
+	/* start the transfer when the buffer is almost full: */
+	/* (buffer_size / avail_min) * avail_min */
+
+	vRet = snd_pcm_sw_params_set_start_threshold(pHandle, swparams, (buffer_size / period_size) * period_size);
+	//vRet = snd_pcm_sw_params_set_start_threshold(pHandle, swparams, 1);
+	if (vRet < 0) {
+		printf("Unable to set start threshold mode for playback: %s\n", snd_strerror(vRet));
+		return vRet;
+	}
+
+	/* allow the transfer when at least period_size samples can be processed */
+	/* or disable this mechanism when period event is enabled (aka interrupt like style processing) */
+	vRet = snd_pcm_sw_params_set_avail_min(pHandle, swparams, period_event ? buffer_size : period_size);
+	if (vRet < 0) {
+		printf("Unable to set avail min for playback: %s\n", snd_strerror(vRet));
+		return vRet;
+	}
+
+	/* enable period events when requested */
+	if (period_event) {
+		vRet = snd_pcm_sw_params_set_period_event(pHandle, swparams, 1);
+		if (vRet < 0) {
+			printf("Unable to set period event: %s\n", snd_strerror(vRet));
+			return vRet;
+		}
+	}
+
+	/* Write the parameters to the driver */
+	vRet = snd_pcm_sw_params(pHandle, swparams);
+	if (vRet < 0) {
+		fprintf(stderr, "unable to set sw parameters: %s\n", snd_strerror(vRet));
+		exit(1);
+	}
+
+	ShowAlsaParameters(pHandle, pParams, NULL);
 	return 0;
 }
-
 #endif
+
 
 void ShowAlsaParameters(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams, snd_pcm_sw_params_t *pSwParams)
 {

@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#define _TRACE_ALSA_ printf("%s:%d\n", __func__, __LINE__);
+
 #include <alsa/asoundlib.h>
 #define ALSA_PCM_NEW_HW_PARAMS_API
 #define ALSA_PCM_NEW_SW_PARAMS_API

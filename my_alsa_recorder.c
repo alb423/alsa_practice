@@ -3,6 +3,7 @@
 		./arecorder > 1.raw
 
 	Render recorded file
+		$ ffplay -f s16le -ar 16000 -ac 2 1.raw
 		$ ffplay -f s16le -ar 44.1k -ac 2 1.raw
 */
 
@@ -38,8 +39,8 @@ int main()
 	struct pcm_config vxConfigs;
 	memset(&vxConfigs, 0, sizeof(struct pcm_config));
 	vxConfigs.channels = 2;
-	vxConfigs.rate = 44100;
-	vxConfigs.period_size = 1024;
+	vxConfigs.rate = 16000;
+	vxConfigs.period_size = 256;
 	vxConfigs.period_count = 4;
 	vxConfigs.format = PCM_FORMAT_S16_LE;
 	SetParametersByTinyAlsaConfigs(pHandle, pParams, &vxConfigs);
@@ -87,6 +88,5 @@ int main()
 	snd_pcm_drain(pHandle);
 	snd_pcm_close(pHandle);
 	free(pBuffer);
-
 	return 0;
 }

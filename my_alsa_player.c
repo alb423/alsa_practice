@@ -22,7 +22,8 @@ int main(int argc, char **argv)
 	/* ================
 	 * Open PCM device
 	 * ================ */
-	vRet = snd_pcm_open(&pHandle, "default", SND_PCM_STREAM_PLAYBACK, 0);
+	//vRet = snd_pcm_open(&pHandle, "default", SND_PCM_STREAM_PLAYBACK, 0);
+	vRet = snd_pcm_open(&pHandle, "plughw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
 	if (vRet < 0) {
 		fprintf(stderr, "unable to open pcm device: %s\n", snd_strerror(vRet));
 		exit(1);
@@ -35,16 +36,14 @@ int main(int argc, char **argv)
 	struct pcm_config vxConfigs;
 	memset(&vxConfigs, 0, sizeof(struct pcm_config));
 	vxConfigs.channels = 2;
-	vxConfigs.rate = 44100;
-	vxConfigs.period_size = 1024;
-	vxConfigs.period_count = 4;
+	vxConfigs.rate = 16000;
+	vxConfigs.period_size = 512;//256;
+	vxConfigs.period_count = 8;
 	vxConfigs.format = PCM_FORMAT_S16_LE;
 	SetParametersByTinyAlsaConfigs(pHandle, pParams, (struct pcm_config *)&vxConfigs);
 #else
 	SetParametersByAlsaConfigs(pHandle, pParams);
 #endif
-
-	ShowAlsaParameters(pHandle, pParams, NULL);
 
 	/* Use a buffer large enough to hold one period */
 	snd_pcm_hw_params_get_period_size(pParams, &vFrames, &vDirection);
@@ -83,14 +82,12 @@ int main(int argc, char **argv)
 		}
 	}
 
-	snd_pcm_drain(pHandle);
-	snd_pcm_close(pHandle);
-	free(pBuffer);
-
 	/* ================
 	 * Close PCM device
 	 * ================ */
+	snd_pcm_drain(pHandle);
 	snd_pcm_close(pHandle);
+	free(pBuffer);
 	return 0;
 }
 
