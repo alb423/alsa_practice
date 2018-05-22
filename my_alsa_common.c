@@ -54,7 +54,6 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 	// tinyalsa configuration
 	struct pcm_config *pConfigs = (struct pcm_config *)pConfigsIn;
 
-	_TRACE_ALSA_;
 	if (!pConfigs)
 		return -1;
 
@@ -93,7 +92,6 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		return (-1);
 	}
 
-
 	if(MI_BUFFER_SET_METHOD == MI_BUFFER_SET_BY_PERIOD_TIME3)
 	{
 		vRet = snd_pcm_hw_params_set_buffer_time_near(pHandle, hwparams, &buffer_time, &vDir);
@@ -130,14 +128,25 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 			fprintf(stderr, "Error setting period_size : %s\n", snd_strerror(vRet));
 			return (-1);
 		}
+		else {
+			/* Set period size to 256 frames. */
+			vFrames = 256;
+			vRet = snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDir);
+			//snd_pcm_hw_params_set_period_size(pHandle, hwparams, pConfigs->period_size, vDir);	// 1024
+			//snd_pcm_hw_params_set_periods(pHandle, hwparams, pConfigs->period_count, vDir);  // 4
+			if (vRet < 0) {
+				fprintf(stderr, "Error setting period_size : %s\n", snd_strerror(vRet));
+				return (-1);
+			}
 
-		/* NOTE:  here may cause underrun*/
-		/* Set buffer size (in frames). The resulting latency is given by */
-		/* latency = periodsize * periods / (rate * bytes_per_frame)     */
-		vRet = snd_pcm_hw_params_set_buffer_size(pHandle, hwparams, (pConfigs->period_size * pConfigs->period_count) >> 2);
-		if (vRet < 0) {
-			fprintf(stderr, "Error setting buffer_size : %s\n", snd_strerror(vRet));
-			return (-1);
+			/* NOTE:  here may cause underrun*/
+			/* Set buffer size (in frames). The resulting latency is given by */
+			/* latency = periodsize * periods / (rate * bytes_per_frame)     */
+			vRet = snd_pcm_hw_params_set_buffer_size(pHandle, hwparams, (pConfigs->period_size * pConfigs->period_count) >> 2);
+			if (vRet < 0) {
+				fprintf(stderr, "Error setting buffer_size : %s\n", snd_strerror(vRet));
+				return (-1);
+			}
 		}
 	}
 

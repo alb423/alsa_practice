@@ -9,6 +9,8 @@ extern "C" {
 #define MI_PERIOD_TIME 	15000               /* ring buffer length in us */
 
 #define _TRACE_ALSA_ printf("%s:%d\n", __func__, __LINE__);
+
+#define _TRACE_ALSA_ printf("%s:%d\n", __func__, __LINE__);
 #include <alsa/asoundlib.h>
 #define ALSA_PCM_NEW_HW_PARAMS_API
 #define ALSA_PCM_NEW_SW_PARAMS_API
@@ -35,9 +37,6 @@ extern int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_
 
 #define MI_ACCESS_TYPE	SND_PCM_ACCESS_MMAP_INTERLEAVED
 //#define MI_ACCESS_TYPE	SND_PCM_ACCESS_RW_INTERLEAVED
-
-
-
 
 
 #ifdef __cplusplus
