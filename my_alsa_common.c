@@ -13,7 +13,7 @@ int pcm_format_to_alsa(enum pcm_format format)
 	switch (format) {
 
 	case PCM_FORMAT_S8:
-		return SND_PCM_FORMAT_S8;
+			return SND_PCM_FORMAT_S8;
 
 	default:
 	case PCM_FORMAT_S16_LE:
@@ -54,6 +54,7 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 	// tinyalsa configuration
 	struct pcm_config *pConfigs = (struct pcm_config *)pConfigsIn;
 
+	_TRACE_ALSA_;
 	if (!pConfigs)
 		return -1;
 
@@ -92,8 +93,7 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		return (-1);
 	}
 
-	if(MI_BUFFER_SET_METHOD == MI_BUFFER_SET_BY_PERIOD_TIME3)
-	{
+	if (MI_BUFFER_SET_METHOD == MI_BUFFER_SET_BY_PERIOD_TIME) {
 		vRet = snd_pcm_hw_params_set_buffer_time_near(pHandle, hwparams, &buffer_time, &vDir);
 		if (vRet < 0) {
 			printf("Unable to set buffer time %i for playback: %s\n", buffer_time, snd_strerror(vRet));
@@ -117,8 +117,7 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 			return vRet;
 		}
 		period_size = vFrames;
-	}
-	else {
+	} else {
 		/* Set period size to 256 frames. */
 		vFrames = 256;
 		vRet = snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDir);
@@ -127,8 +126,7 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		if (vRet < 0) {
 			fprintf(stderr, "Error setting period_size : %s\n", snd_strerror(vRet));
 			return (-1);
-		}
-		else {
+		} else {
 			/* Set period size to 256 frames. */
 			vFrames = 256;
 			vRet = snd_pcm_hw_params_set_period_size_near(pHandle, hwparams, &vFrames, &vDir);
@@ -202,7 +200,22 @@ int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *hwpa
 		exit(1);
 	}
 
+#if 0
 	ShowAlsaParameters(pHandle, hwparams, swparams);
+#else
+	{
+		static snd_output_t *output = NULL;
+		vRet = snd_output_stdio_attach(&output, stdout, 0);
+		if (vRet < 0) {
+			printf("Output failed: %s\n", snd_strerror(vRet));
+			return 0;
+		}
+		printf("==> Dump pcm information\n");
+		snd_pcm_dump(pHandle, output);
+		printf("==> Dump pcm hw/sw configuration\n");
+		snd_pcm_dump_setup(pHandle, output);
+	}
+#endif
 	return 0;
 }
 
@@ -257,8 +270,7 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 		return (-1);
 	}
 
-	if(MI_BUFFER_SET_METHOD == MI_BUFFER_SET_BY_PERIOD_TIME)
-	{
+	if (MI_BUFFER_SET_METHOD == MI_BUFFER_SET_BY_PERIOD_TIME) {
 		vRet = snd_pcm_hw_params_set_buffer_time_near(pHandle, hwparams, &buffer_time, &vDir);
 		if (vRet < 0) {
 			printf("Unable to set buffer time %i for playback: %s\n", buffer_time, snd_strerror(vRet));
@@ -282,8 +294,7 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 			return vRet;
 		}
 		period_size = vFrames;
-	}
-	else {
+	} else {
 		/* Set buffer size (in frames). The resulting latency is given by */
 		/* latency = periodsize * periods / (rate * bytes_per_frame)     */
 		vRet = snd_pcm_hw_params_set_buffer_size(pHandle, hwparams, period_size * 8);
@@ -360,7 +371,22 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 		exit(1);
 	}
 
+#if 0
 	ShowAlsaParameters(pHandle, pParams, NULL);
+#else
+	{
+		static snd_output_t *output = NULL;
+		vRet = snd_output_stdio_attach(&output, stdout, 0);
+		if (vRet < 0) {
+			printf("Output failed: %s\n", snd_strerror(vRet));
+			return 0;
+		}
+		printf("==> Dump pcm information\n");
+		snd_pcm_dump(pHandle, output);
+		printf("==> Dump pcm hw/sw configuration\n");
+		snd_pcm_dump_setup(pHandle, output);
+	}
+#endif
 	return 0;
 }
 #endif

@@ -14,7 +14,8 @@ LDFLAGS=-lasound -ldl -lm
 SRC=$(wildcard *.c)
 OBJECT= ${SRC:.c=.o}
 
-all: aplayer arecorder
+all: aplayer arecorder latency
+
 %.o: %.c 
 	$(CC) -c -o $@ $< $(CFLAGS)
 
@@ -24,5 +25,9 @@ aplayer: my_alsa_player.o my_alsa_common.o
 arecorder: my_alsa_recorder.o my_alsa_common.o
 	$(CC) -o $@ my_alsa_recorder.o my_alsa_common.o $(LDFLAGS) 
 
+# http://git.alsa-project.org/?p=alsa-lib.git;a=blob_plain;f=test/latency.c
+latency: latency.o
+	$(CC) -o $@ latency.o $(LDFLAGS)
+
 clean:
-	rm -f *.o arecorder aplayer
+	rm -f *.o arecorder aplayer latency

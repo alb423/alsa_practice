@@ -5,12 +5,8 @@
 extern "C" {
 #endif
 
-#define MI_BUFFER_TIME 	500000              /* ring buffer length in us */
-#define MI_PERIOD_TIME 	15000               /* ring buffer length in us */
+#define _TRACE_ALSA_ fprintf(stderr,"%s:%d\n", __func__, __LINE__);
 
-#define _TRACE_ALSA_ printf("%s:%d\n", __func__, __LINE__);
-
-#define _TRACE_ALSA_ printf("%s:%d\n", __func__, __LINE__);
 #include <alsa/asoundlib.h>
 #define ALSA_PCM_NEW_HW_PARAMS_API
 #define ALSA_PCM_NEW_SW_PARAMS_API
@@ -31,12 +27,14 @@ extern int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_
 #if MI_BUFFER_SET_METHOD == MI_BUFFER_SET_BY_PERIOD_TIME
 #define MI_BUFFER_TIME 	500000              /* ring buffer length in us */
 #define MI_PERIOD_TIME 	15000               /* ring buffer length in us */
-#else
-/* do noting */
 #endif
 
-#define MI_ACCESS_TYPE	SND_PCM_ACCESS_MMAP_INTERLEAVED
-//#define MI_ACCESS_TYPE	SND_PCM_ACCESS_RW_INTERLEAVED
+#define MI_ACCESS_TYPE_MMAP_INTERLEAVED	0	// SND_PCM_ACCESS_MMAP_INTERLEAVED
+#define MI_ACCESS_TYPE_RW_INTERLEAVED	3 	// SND_PCM_ACCESS_RW_INTERLEAVED
+#define MI_ACCESS_TYPE	MI_ACCESS_TYPE_MMAP_INTERLEAVED
+#if MI_ACCESS_TYPE == MI_ACCESS_TYPE_MMAP_INTERLEAVED
+#define MMAP_ZERO_COPY 0 // 0 or 1
+#endif
 
 
 #ifdef __cplusplus
