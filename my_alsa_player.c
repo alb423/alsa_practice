@@ -17,17 +17,18 @@ int main(int argc, char **argv)
 	int vRet, vDirection, vSize, vLoops;
 	unsigned int vVal;
 	unsigned char *pBuffer;
-
+	//char pCard[] = "default";
+	char pCard[] = "plughw:0,0";
 	snd_pcm_uframes_t vFrames;
 	snd_pcm_t *pHandle;
 	snd_pcm_hw_params_t *pParams;
 
-	//vRet = snd_pcm_open(&pHandle, "default", SND_PCM_STREAM_PLAYBACK, 0);
-	vRet = snd_pcm_open(&pHandle, "plughw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
+	vRet = snd_pcm_open(&pHandle, pCard, SND_PCM_STREAM_PLAYBACK, 0);
 	if (vRet < 0) {
 		fprintf(stderr, "unable to open pcm device: %s\n", snd_strerror(vRet));
 		exit(1);
 	}
+	SetAlsaMasterVolume(pCard, 100);
 
 	/* Allocate a hardware parameters object. */
 	snd_pcm_hw_params_alloca(&pParams);
@@ -44,6 +45,7 @@ int main(int argc, char **argv)
 #else
 	SetParametersByAlsaConfigs(pHandle, pParams);
 #endif
+
 
 	/* Use a buffer large enough to hold one period */
 	snd_pcm_hw_params_get_period_size(pParams, &vFrames, &vDirection);

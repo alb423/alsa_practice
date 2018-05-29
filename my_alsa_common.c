@@ -13,7 +13,7 @@ int pcm_format_to_alsa(enum pcm_format format)
 	switch (format) {
 
 	case PCM_FORMAT_S8:
-			return SND_PCM_FORMAT_S8;
+		return SND_PCM_FORMAT_S8;
 
 	default:
 	case PCM_FORMAT_S16_LE:
@@ -528,4 +528,44 @@ void ShowAlsaParameters(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams, snd_pc
 		//snd_pcm_sw_params_get_tstamp_type(pSwParams, &vxTimeStampType);
 		//printf("timestamp type = %d\n", (int)vxTimeStampType);
 	}
+}
+
+/*
+ * Reference from
+ * https://stackoverflow.com/questions/6787318/set-alsa-master-volume-from-c-code/6787957#6787957
+ *
+ * The parameter volume is to be given in the range [0, 100]
+ */
+void SetAlsaMasterVolume(char *card , long volume)
+{
+	long min, max, curVol;
+	snd_mixer_t *handle;
+	snd_mixer_selem_id_t *sid;
+	//const char *card = "default";
+	const char *selem_name = "Master";
+
+	snd_mixer_open(&handle, 0);
+	snd_mixer_attach(handle, card);
+	snd_mixer_selem_register(handle, NULL, NULL);
+	snd_mixer_load(handle);
+
+	snd_mixer_selem_id_alloca(&sid);
+	snd_mixer_selem_id_set_index(sid, 0);
+	snd_mixer_selem_id_set_name(sid, selem_name);
+	snd_mixer_elem_t* elem = snd_mixer_find_selem(handle, sid);
+
+	if (elem) {
+#if 1
+		snd_mixer_selem_get_playback_volume(elem, 0, &curVol);
+		snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
+		fprintf(stderr, "current volume = %ld, range (min=%ld, max=%ld)\n", curVol, min, max);
+		snd_mixer_selem_set_playback_volume_all(elem, volume * max / 100);
+#else
+		snd_mixer_selem_get_capture_volume(elem, 0, &curVol);
+		snd_mixer_selem_get_capture_volume_range(elem, &min, &max);
+		fprintf(stderr, "current volume = %ld, range (min=%ld, max=%ld)\n", curVol, min, max);
+		snd_mixer_selem_set_capture_volume_all(elem, volume * max / 100);
+#endif
+	}
+	snd_mixer_close(handle);
 }

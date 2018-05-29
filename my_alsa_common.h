@@ -14,6 +14,7 @@ extern "C" {
 extern void ShowAlsaParameters(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams, snd_pcm_sw_params_t *pSwParams);
 extern int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams);
 extern int xrun_recovery(snd_pcm_t *handle, int err);
+extern void SetAlsaMasterVolume(char *card , long volume);
 
 #if SUPPORT_TINYALSA == 1
 #include <tinyalsa/pcm.h>
@@ -31,7 +32,9 @@ extern int SetParametersByTinyAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_
 
 #define MI_ACCESS_TYPE_MMAP_INTERLEAVED	0	// SND_PCM_ACCESS_MMAP_INTERLEAVED
 #define MI_ACCESS_TYPE_RW_INTERLEAVED	3 	// SND_PCM_ACCESS_RW_INTERLEAVED
-#define MI_ACCESS_TYPE	MI_ACCESS_TYPE_MMAP_INTERLEAVED
+//#define MI_ACCESS_TYPE	MI_ACCESS_TYPE_MMAP_INTERLEAVED
+#define MI_ACCESS_TYPE	MI_ACCESS_TYPE_RW_INTERLEAVED
+
 #if MI_ACCESS_TYPE == MI_ACCESS_TYPE_MMAP_INTERLEAVED
 #define MMAP_ZERO_COPY 0 // 0 or 1
 #endif
