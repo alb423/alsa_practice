@@ -355,6 +355,7 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 		return vRet;
 	}
 
+#if 0
 	/* enable period events when requested */
 	if (period_event) {
 		vRet = snd_pcm_sw_params_set_period_event(pHandle, swparams, 1);
@@ -363,6 +364,7 @@ int SetParametersByAlsaConfigs(snd_pcm_t *pHandle, snd_pcm_hw_params_t *pParams)
 			return vRet;
 		}
 	}
+#endif
 
 	/* Write the parameters to the driver */
 	vRet = snd_pcm_sw_params(pHandle, swparams);
